@@ -21,10 +21,10 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
 - [x] Mocked-HTTP tests incl. 429 path (25 tests)
 
 ## Phase 2 — Contracts + Kafka
-- [ ] contracts/v1: match, timeline_event, player_rank
-- [ ] Producer validation → lol.match.raw / lol.match.dlq (reason, schema version, ts)
-- [ ] Timeline exploded into per-event messages (Redpanda 1 MiB default batch limit), zstd
-- [ ] Rejection-rate metric; malformed-payload tests
+- [x] contracts/v1: match, timeline_event, player_rank (JSON Schema 2020-12, meta-validated on load)
+- [x] Producer validation → lol.match.raw / lol.match.dlq (reason, schema version, ts)
+- [x] Timeline exploded into per-event messages (Redpanda 1 MiB batch limit verified via rpk), zstd
+- [x] Rejection-rate metric (producer_metrics JSONL in landing/); malformed-payload tests (51 tests)
 
 ## Phase 3 — Landing + bronze  (needs: Databricks PAT + SQL warehouse HTTP path in .env)
 - [ ] Consumer → JSONL → UC Volume (Databricks SDK)
@@ -54,3 +54,13 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
   because first-sync "debt" made the new process wait out the ~50 calls Riot had already
   counted. That's the feature working, not slowness.
 - Verified from headers: na1 and americas have separate app-limit counters.
+
+### Phase 2 (2026-11-11)
+- Contract vs reality: the real-sample test caught `teamId: 0` on DRAGON_SOUL_GIVEN. Contract
+  relaxed for that case only; BUILDING_KILL still requires 100/200. A regression test was added.
+- Real run into Redpanda: 20 matches → 22,594 events valid, 0 rejected (0.0% organic),
+  52 API calls, 0×429, 55.1 s.
+- Raw partition high-watermarks sum to 22,594, matching the producer count. Each key maps to one
+  partition (checked over 5,000 messages). Retention: raw 7 days, DLQ 30 days.
+- `make dlq-demo`: 3 broken events → DLQ with path/rule/schema_version/rejected_at, tagged
+  producer=dlq-demo so they can be excluded from real rejection metrics.
