@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze dbt-parse dbt-build dbt-docs topics dlq-peek backfill
+.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze dbt-parse dbt-build dbt-docs topics dlq-peek airflow-config dag-check backfill
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -81,7 +81,22 @@ dlq-peek: ## Show the latest DLQ messages (reason + schema version)
 	docker compose exec -T redpanda rpk topic consume lol.match.dlq -o -3 -n 3 -f '%v\n' \
 	  | jq -c '{event_id, event_type, schema_version, rejected_at, errors}'
 
-backfill: ## Backfill a date range: make backfill START=YYYY-MM-DD END=YYYY-MM-DD (Phase 5)
+AF = docker compose exec -T airflow-scheduler
+airflow-config: ## Load .env secrets into Airflow Connections (encrypted), Variables, and the pool
+	@uv run --env-file .env python docker/airflow/connections.py connections \
+	  | $(AF) bash -c 'f=$$(mktemp --suffix=.json); cat > $$f; airflow connections import --overwrite $$f; rc=$$?; rm -f $$f; exit $$rc'
+	@uv run --env-file .env python docker/airflow/connections.py variables \
+	  | $(AF) bash -c 'f=$$(mktemp --suffix=.json); cat > $$f; airflow variables import -a overwrite $$f; rc=$$?; rm -f $$f; exit $$rc'
+	@$(AF) airflow pools set databricks 1 "Free Edition: one 2X-Small SQL warehouse" >/dev/null && echo "pool databricks=1"
+
+dag-check: ## DAG import errors + task graph, inside the Airflow container
+	@$(AF) airflow dags list-import-errors
+	@$(AF) airflow tasks list rift_lakehouse
+
+REPROCESS ?= none
+backfill: ## Backfill: make backfill START=YYYY-MM-DD END=YYYY-MM-DD [REPROCESS=none|failed|completed]
 	@if [ -z "$(START)" ] || [ -z "$(END)" ]; then \
 	  echo "usage: make backfill START=YYYY-MM-DD END=YYYY-MM-DD"; exit 2; fi
-	@echo "make backfill $(START)..$(END): not implemented yet (Phase 5: Airflow backfill)"; exit 1
+	$(AF) airflow dags unpause rift_lakehouse
+	$(AF) airflow backfill create --dag-id rift_lakehouse --from-date $(START) --to-date $(END) \
+	  --reprocess-behavior $(REPROCESS) --max-active-runs 1
