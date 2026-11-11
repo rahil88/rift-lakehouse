@@ -28,3 +28,6 @@ logs/
 .DS_Store
 .idea/
 .vscode/
+
+# dbt anonymous usage id
+dbt/.user.yml

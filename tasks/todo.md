@@ -27,13 +27,37 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
 - [x] Rejection-rate metric (producer_metrics JSONL in landing/); malformed-payload tests (51 tests)
 
 ## Phase 3 — Landing + bronze  (needs: Databricks PAT + SQL warehouse HTTP path in .env)
-- [ ] Consumer → JSONL → UC Volume (Databricks SDK)
-- [ ] COPY INTO bronze with _ingested_at, _source_file, _schema_version
+- [x] Consumer → JSONL landing: micro-batches, commit after fsync, deterministic file names
+- [x] Idle timer waits for partition assignment (rebalance) — found in review, tested
+- [x] Upload → UC Volume (Files API) + local archive; COPY INTO bronze w/ _ingested_at, _source_file, _schema_version
+- [x] Data Dragon champions → landing (real: 173 champions, 16.22.1)
+- [x] SDK 0.117.0 signatures verified against installed package
+- [ ] **Real run against Databricks** (blocked: DATABRICKS_* not in .env yet)
 
 ## Phase 4 — dbt silver/gold
+- [x] Silver: stg_matches / participants / timeline_events / player_ranks / champions (MERGE on natural keys)
+- [x] Gold: fct_participant_match, dim_champion, dim_patch, snap_player_rank (SCD2), Wilson win-rate mart
+- [x] 50 dbt tests incl. exactly-10-participants, one-winning-team, CI-contains-win-rate; docs
+- [x] `dbt parse` clean (0 warnings); Wilson macro evaluated vs reference values
+- [ ] **Real `dbt build`** (blocked on Databricks)
+
 ## Phase 5 — Airflow DAG + backfill
+- [x] Custom image: isolated /opt/rift-venv from uv.lock (pipeline + dbt; no streamlit/pytest)
+- [x] DAG parses (0 import errors), 6 tasks; CronDataIntervalTimetable (Airflow 3 @daily has no interval)
+- [x] Connections (riot_api stored Fernet-encrypted, verified in DB), Variables, pool databricks=1
+- [x] Rank snapshot labeled by logical date (rerun-idempotent), skipped on backfills
+- [ ] Real task run inside Airflow (collect) — after bulk crawl finishes
+- [ ] **Full DAG run + backfill** (blocked on Databricks)
+
 ## Phase 6 — Observability
+- [x] Freshness SLO (Delta history), volume z-score (14d), duration PSI drift, DLQ rate → quality_results MERGE
+- [x] insufficient_data instead of fake pass; exit 1 on fail = Airflow alert; 12 unit tests
+- [ ] **Real run** (blocked on Databricks)
+
 ## Phase 7 — Dashboard + README with measured numbers
+- [x] Streamlit dashboard (Wilson CI chart sorted by lower bound, health tab); chart tests
+- [x] docs/references.md
+- [ ] README with Mermaid + measured results (Databricks-side numbers pending)
 
 ## Review
 
