@@ -101,8 +101,10 @@ def test_write_metrics_lands_one_row_per_event_type(tmp_path):
     sink = make_sink(FakeProducer())
     sink.emit(match_event(make_match("NA1_11")))
     sink.emit(Event("player_rank", "p", "r", {}))
-    out = write_metrics(tmp_path, "crawl-x", "2026-11-11T00:00:00+00:00", sink, "v1")
+    window = ("2026-11-10", "2026-11-11")
+    out = write_metrics(tmp_path, "crawl-x", "2026-11-11T00:00:00+00:00", sink, "v1", window)
     assert out == tmp_path / "producer_metrics" / "run_date=2026-11-11" / "crawl-x.jsonl"
     rows = [json.loads(line) for line in out.read_text().splitlines()]
+    assert {(r["window_start"], r["window_end"]) for r in rows} == {window}
     rates = {r["event_type"]: r["rejection_rate"] for r in rows}
     assert rates == {"match": 0.0, "player_rank": 1.0}

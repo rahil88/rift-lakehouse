@@ -181,9 +181,18 @@ class KafkaSink:
 
 
 def write_metrics(
-    landing_dir: Path, run_id: str, started_at: str, sink: KafkaSink, version: str
+    landing_dir: Path,
+    run_id: str,
+    started_at: str,
+    sink: KafkaSink,
+    version: str,
+    window: tuple[str, str] = ("", ""),
 ) -> Path:
-    """Append this run's rejection-rate metric under the landing dir (uploaded in Phase 3)."""
+    """Write this run's rejection-rate metric under the landing dir (uploaded to bronze).
+
+    ``window`` is the crawl's [start, end) data window, so the DLQ check can ask for the
+    rejection rate of the run that collected a given day.
+    """
     finished_at = _utc_now()
     out = landing_dir / "producer_metrics" / f"run_date={started_at[:10]}" / f"{run_id}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -194,6 +203,8 @@ def write_metrics(
                 "run_id": run_id,
                 "run_started_at": started_at,
                 "run_finished_at": finished_at,
+                "window_start": window[0],
+                "window_end": window[1],
                 "event_type": event_type,
                 "schema_version": version,
                 **counts,

@@ -151,7 +151,9 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
     if isinstance(sink, KafkaSink):
         report["validation"] = sink.metrics.summary()
         landing = settings.data_dir / "landing"
-        report["metrics_file"] = str(write_metrics(landing, run_id, started_at, sink, "v1"))
+        window = (cfg.start.date().isoformat(), cfg.end.date().isoformat())
+        metrics_file = write_metrics(landing, run_id, started_at, sink, "v1", window)
+        report["metrics_file"] = str(metrics_file)
     _write_report(settings, run_id, report)
     return 0
 
