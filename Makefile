@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze dbt-parse dbt-build dbt-docs quality topics dlq-peek airflow-config dag-check backfill
+.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze dbt-parse dbt-build dbt-docs quality dashboard topics dlq-peek airflow-config dag-check backfill
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -77,6 +77,9 @@ dbt-docs: ## Generate dbt docs (needs Databricks) and serve on :8082
 quality: ## Run quality checks for a data day: make quality DATE=YYYY-MM-DD (needs Databricks)
 	@test -n "$(DATE)" || { echo "usage: make quality DATE=YYYY-MM-DD"; exit 2; }
 	@uv run --env-file .env python -m quality run --date $(DATE)
+
+dashboard: ## Streamlit dashboard over gold on http://localhost:8501 (needs Databricks)
+	uv run --env-file .env streamlit run dashboard/app.py --server.address 127.0.0.1
 
 topics: ## Describe Kafka topics (message counts per partition)
 	docker compose exec -T redpanda rpk topic describe lol.match.raw lol.match.dlq -p
