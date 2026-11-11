@@ -40,6 +40,9 @@ class CrawlConfig:
     max_matches: int = 200
     snapshot_ranks: bool = True
     extra_riot_ids: tuple[str, ...] = ()  # "gameName#tagLine", resolved to PUUIDs via account-v1
+    # Label for the rank snapshot. Airflow passes the run's logical date, so a rerun of the same
+    # day produces the same (puuid, snapshot_at) keys and silver dedups them: idempotent.
+    snapshot_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if self.start.tzinfo is None or self.end.tzinfo is None:
@@ -82,7 +85,8 @@ def run_crawl(
 ) -> CrawlReport:
     t0 = clock()
     stats_before = dict(client.stats)
-    snapshot_at = now or datetime.now(UTC)
+    now = now or datetime.now(UTC)
+    snapshot_at = cfg.snapshot_at or now
     report = CrawlReport(start=cfg.start.isoformat(), end=cfg.end.isoformat())
 
     # 1. ladders -> rank snapshot + seeds
@@ -112,7 +116,7 @@ def run_crawl(
 
     # 2. discovery
     start_s, end_s = int(cfg.start.timestamp()), int(cfg.end.timestamp())
-    window_complete = cfg.end <= snapshot_at
+    window_complete = cfg.end <= now  # real time, not the snapshot label
     for entry in seeds:
         puuid = entry["puuid"]
         if state.window_listed(puuid, start_s, end_s):

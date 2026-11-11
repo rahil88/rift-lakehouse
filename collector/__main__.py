@@ -50,6 +50,17 @@ def _parser() -> argparse.ArgumentParser:
         help="extra seed player, resolved to a PUUID via account-v1 (repeatable)",
     )
     crawl.add_argument("--sink", choices=["kafka", "jsonl"], default="kafka")
+    crawl.add_argument(
+        "--snapshot-at",
+        type=datetime.fromisoformat,
+        help="label for the rank snapshot (Airflow: the run's logical date). Default: now",
+    )
+    crawl.add_argument(
+        "--max-rank-lag-hours",
+        type=float,
+        help="skip the rank snapshot if --snapshot-at is older than this (backfills: league-v4 "
+        "only knows the current ladder, so it can't be snapshotted for a past date)",
+    )
     sub.add_parser("dlq-demo", help="send 3 malformed events to show the DLQ path")
     ddragon = sub.add_parser("ddragon", help="Data Dragon champions -> landing (for dim_champion)")
     ddragon.add_argument("--version", help="game version, e.g. 16.22.1 (default: latest)")
@@ -99,14 +110,23 @@ def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
 
     run_id = "crawl-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     started_at = datetime.now(UTC).isoformat(timespec="seconds")
+    snapshot_ranks = not args.no_ranks
+    if args.snapshot_at and args.max_rank_lag_hours is not None:
+        lag_h = (datetime.now(UTC) - args.snapshot_at).total_seconds() / 3600
+        if lag_h > args.max_rank_lag_hours:
+            logging.getLogger(__name__).info(
+                "skipping rank snapshot: %s is %.0fh old (backfill)", args.snapshot_at, lag_h
+            )
+            snapshot_ranks = False
     cfg = CrawlConfig(
         start=args.start,
         end=args.end,
         tiers=tuple(t.strip().lower() for t in args.tiers.split(",") if t.strip()),
         max_players=args.max_players,
         max_matches=args.max_matches,
-        snapshot_ranks=not args.no_ranks,
+        snapshot_ranks=snapshot_ranks,
         extra_riot_ids=tuple(args.riot_id),
+        snapshot_at=args.snapshot_at,
     )
     sink: Sink = (
         _kafka_sink(settings) if args.sink == "kafka" else JsonlSink(settings.data_dir / "raw")

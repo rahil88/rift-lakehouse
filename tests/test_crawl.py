@@ -100,3 +100,16 @@ def test_extra_riot_id_is_resolved_via_account_v1_and_seeded(clock):
     assert calls["account"] == 1 and calls["ids"] == 3
     assert report.players_seeded == 3
     assert "match:NA1_4" in {e.event_id for e in sink.events}
+
+
+def test_rank_snapshot_labeled_by_logical_date_is_idempotent(clock):
+    """Airflow passes the run's logical date: rerunning the day yields the same rank keys."""
+    from dataclasses import replace
+
+    cfg = replace(CFG, snapshot_at=datetime(2026, 11, 11, tzinfo=UTC))
+    ids = []
+    for _ in range(2):
+        _, sink = run(CrawlState(":memory:"), clock, Counter(), cfg)
+        ids.append(sorted(e.event_id for e in sink.events if e.event_type == "player_rank"))
+    assert ids[0] == ids[1]
+    assert ids[0][0].endswith(":2026-11-11T00:00:00+00:00")
