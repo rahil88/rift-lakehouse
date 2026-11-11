@@ -1,0 +1,34 @@
+[project]
+name = "rift-lakehouse"
+version = "0.1.0"
+description = "League of Legends match data lakehouse: Riot API -> data contracts -> Redpanda -> Databricks (Delta, Unity Catalog) -> dbt -> Airflow"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# Runtime deps are added phase by phase, each pinned exactly. uv.lock pins the transitive tree.
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.4",
+]
+
+[tool.uv]
+# Not built as a wheel: collector/, consumer/, quality/ are imported from the repo root.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I isort, UP pyupgrade, B bugbear, SIM simplify, ANN type hints
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "ANN"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
