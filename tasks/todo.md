@@ -46,7 +46,7 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
 - [x] DAG parses (0 import errors), 6 tasks; CronDataIntervalTimetable (Airflow 3 @daily has no interval)
 - [x] Connections (riot_api stored Fernet-encrypted, verified in DB), Variables, pool databricks=1
 - [x] Rank snapshot labeled by logical date (rerun-idempotent), skipped on backfills
-- [ ] Real task run inside Airflow (collect) — after bulk crawl finishes
+- [ ] Real task run inside Airflow (collect) — next, with Databricks run
 - [ ] **Full DAG run + backfill** (blocked on Databricks)
 
 ## Phase 6 — Observability
@@ -88,3 +88,14 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
   partition (checked over 5,000 messages). Retention: raw 7 days, DLQ 30 days.
 - `make dlq-demo`: 3 broken events → DLQ with path/rule/schema_version/rejected_at, tagged
   producer=dlq-demo so they can be excluded from real rejection metrics.
+
+### Phases 3–7 local verification (2026-11-11)
+- Bulk crawl 2026-11-04 → 11-11: 600 matches, 667,238 timeline events, 1,257 calls, 0×429,
+  1,780 s active, 0 rejections. Laptop slept mid-run; 3 DNS errors on wake were retried
+  automatically.
+- Two producer-metrics files predated the window field; window_start/end were filled from each
+  run's own report (data/reports), not guessed.
+- `make land`: 691,435 messages → 143 files (609 MB) in 32 s. That equals Kafka exactly
+  (22,594 + 668,838 valid + 3 DLQ demo). The rerun landed 0 (offsets committed). 0 duplicate event_ids.
+- Waiting on Databricks: upload, COPY INTO, dbt build, quality, full DAG + backfill, dashboard,
+  README results.
