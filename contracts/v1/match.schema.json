@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rift-lakehouse/contracts/v1/match.schema.json",
+  "title": "match v1",
+  "description": "Riot match-v5 MatchDto for ranked solo queue on Summoner's Rift. Pins the fields the silver/gold models depend on; additional fields are allowed because Riot adds fields between patches without notice.",
+  "type": "object",
+  "required": ["metadata", "info"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["matchId", "participants"],
+      "properties": {
+        "matchId": { "type": "string", "pattern": "^[A-Z0-9]+_[0-9]+$" },
+        "participants": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 10,
+          "maxItems": 10,
+          "uniqueItems": true
+        }
+      }
+    },
+    "info": {
+      "type": "object",
+      "required": [
+        "gameCreation",
+        "gameDuration",
+        "gameVersion",
+        "queueId",
+        "mapId",
+        "platformId",
+        "participants",
+        "teams"
+      ],
+      "properties": {
+        "gameCreation": { "type": "integer", "minimum": 1262304000000, "description": "epoch ms" },
+        "gameStartTimestamp": { "type": "integer", "minimum": 1262304000000 },
+        "gameEndTimestamp": { "type": "integer", "minimum": 1262304000000 },
+        "gameDuration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 14400,
+          "description": "seconds (Riot switched from ms to s in patch 11.20)"
+        },
+        "gameVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\." },
+        "queueId": { "enum": [420] },
+        "mapId": { "enum": [11] },
+        "platformId": { "type": "string", "minLength": 2 },
+        "endOfGameResult": { "type": "string" },
+        "participants": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/participant" }
+        },
+        "teams": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/team" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "participant": {
+      "type": "object",
+      "required": [
+        "participantId",
+        "puuid",
+        "championId",
+        "championName",
+        "teamId",
+        "teamPosition",
+        "win",
+        "kills",
+        "deaths",
+        "assists",
+        "champLevel",
+        "goldEarned",
+        "totalMinionsKilled",
+        "neutralMinionsKilled",
+        "totalDamageDealtToChampions",
+        "visionScore"
+      ],
+      "properties": {
+        "participantId": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "puuid": { "type": "string", "minLength": 1 },
+        "championId": { "type": "integer", "minimum": 1 },
+        "championName": { "type": "string", "minLength": 1 },
+        "teamId": { "enum": [100, 200] },
+        "teamPosition": {
+          "enum": ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY", ""],
+          "description": "empty string for remakes / games Riot could not assign roles in"
+        },
+        "win": { "type": "boolean" },
+        "kills": { "$ref": "#/$defs/count" },
+        "deaths": { "$ref": "#/$defs/count" },
+        "assists": { "$ref": "#/$defs/count" },
+        "champLevel": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "goldEarned": { "$ref": "#/$defs/count" },
+        "totalMinionsKilled": { "$ref": "#/$defs/count" },
+        "neutralMinionsKilled": { "$ref": "#/$defs/count" },
+        "totalDamageDealtToChampions": { "$ref": "#/$defs/count" },
+        "visionScore": { "type": "number", "minimum": 0 },
+        "gameEndedInEarlySurrender": { "type": "boolean" }
+      }
+    },
+    "team": {
+      "type": "object",
+      "required": ["teamId", "win"],
+      "properties": {
+        "teamId": { "enum": [100, 200] },
+        "win": { "type": "boolean" }
+      }
+    }
+  }
+}

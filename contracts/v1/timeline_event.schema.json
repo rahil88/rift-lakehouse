@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rift-lakehouse/contracts/v1/timeline_event.schema.json",
+  "title": "timeline_event v1",
+  "description": "One event from a match-v5 timeline, plus its position in the timeline. `event.type` is validated by shape (UPPER_SNAKE), not by a fixed list: Riot adds event types (e.g. FEAT_UPDATE), and those should flow through and be flagged by a dbt accepted_values warning, not dropped. Event types the gold layer depends on have conditional required fields.",
+  "type": "object",
+  "required": ["matchId", "frameIndex", "eventIndex", "frameTimestamp", "event"],
+  "properties": {
+    "matchId": { "type": "string", "pattern": "^[A-Z0-9]+_[0-9]+$" },
+    "frameIndex": { "type": "integer", "minimum": 0 },
+    "eventIndex": { "type": "integer", "minimum": 0 },
+    "frameTimestamp": { "type": "integer", "minimum": 0, "description": "ms since game start" },
+    "event": {
+      "type": "object",
+      "required": ["type", "timestamp"],
+      "properties": {
+        "type": { "type": "string", "pattern": "^[A-Z][A-Z_]*$" },
+        "timestamp": { "type": "integer", "minimum": 0 },
+        "participantId": { "$ref": "#/$defs/participantOrZero" },
+        "killerId": { "$ref": "#/$defs/participantOrZero" },
+        "victimId": { "$ref": "#/$defs/participantOrZero" },
+        "teamId": {
+          "enum": [0, 100, 200],
+          "description": "0 seen in real data on DRAGON_SOUL_GIVEN; BUILDING_KILL requires a real team (below)"
+        },
+        "killerTeamId": { "enum": [100, 200, 300] },
+        "position": {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": { "x": { "type": "integer" }, "y": { "type": "integer" } }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "CHAMPION_KILL" } } },
+          "then": { "required": ["killerId", "victimId", "position"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "ELITE_MONSTER_KILL" } } },
+          "then": { "required": ["killerTeamId", "monsterType"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "BUILDING_KILL" } } },
+          "then": {
+            "required": ["teamId", "buildingType"],
+            "properties": { "teamId": { "enum": [100, 200] } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "ITEM_PURCHASED" } } },
+          "then": { "required": ["participantId", "itemId"] }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "participantOrZero": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "0 = not a player (minion, turret, monster)"
+    }
+  }
+}

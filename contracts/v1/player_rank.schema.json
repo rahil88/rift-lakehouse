@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rift-lakehouse/contracts/v1/player_rank.schema.json",
+  "title": "player_rank v1",
+  "description": "One league-v4 ladder entry plus the tier/queue/platform it was read from and when. league-v4 only returns *current* rank, so rank history comes from snapshotting (SCD2 in gold). snapshotAt uses a regex instead of `format: date-time` because jsonschema skips the date-time format check unless an extra package is installed.",
+  "type": "object",
+  "required": [
+    "puuid",
+    "tier",
+    "rank",
+    "leaguePoints",
+    "wins",
+    "losses",
+    "queue",
+    "platformId",
+    "snapshotAt"
+  ],
+  "properties": {
+    "puuid": { "type": "string", "minLength": 1 },
+    "tier": {
+      "enum": [
+        "CHALLENGER",
+        "GRANDMASTER",
+        "MASTER",
+        "DIAMOND",
+        "EMERALD",
+        "PLATINUM",
+        "GOLD",
+        "SILVER",
+        "BRONZE",
+        "IRON"
+      ]
+    },
+    "rank": { "enum": ["I", "II", "III", "IV"] },
+    "leaguePoints": { "type": "integer", "minimum": 0 },
+    "wins": { "type": "integer", "minimum": 0 },
+    "losses": { "type": "integer", "minimum": 0 },
+    "hotStreak": { "type": "boolean" },
+    "veteran": { "type": "boolean" },
+    "freshBlood": { "type": "boolean" },
+    "inactive": { "type": "boolean" },
+    "queue": { "enum": ["RANKED_SOLO_5x5", "RANKED_FLEX_SR"] },
+    "platformId": { "type": "string", "pattern": "^[A-Z0-9]+$" },
+    "snapshotAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\+00:00|Z)$"
+    }
+  }
+}
