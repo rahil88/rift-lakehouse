@@ -5,7 +5,9 @@ description = "League of Legends match data lakehouse: Riot API -> data contract
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 # Runtime deps are added phase by phase, each pinned exactly. uv.lock pins the transitive tree.
-dependencies = []
+dependencies = [
+    "httpx==0.28.1",
+]
 
 [dependency-groups]
 dev = [
