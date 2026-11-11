@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down ps logs test lint fmt check-riot collect backfill
+.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo topics dlq-peek backfill
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -41,10 +41,21 @@ check-riot: ## One Riot API call: prints HTTP status + rate-limit headers (never
 
 MAX_PLAYERS ?= 50
 MAX_MATCHES ?= 200
-collect: ## Crawl Riot API: [START=YYYY-MM-DD END=YYYY-MM-DD] [MAX_PLAYERS=50] [MAX_MATCHES=200]
-	uv run --env-file .env python -m collector crawl \
+SINK ?= kafka
+collect: ## Crawl Riot API -> contracts -> Kafka: [START= END=] [MAX_PLAYERS=50] [MAX_MATCHES=200] [SINK=kafka|jsonl]
+	@uv run --env-file .env python -m collector crawl \
 	  $(if $(START),--start $(START)) $(if $(END),--end $(END)) \
-	  --max-players $(MAX_PLAYERS) --max-matches $(MAX_MATCHES)
+	  --max-players $(MAX_PLAYERS) --max-matches $(MAX_MATCHES) --sink $(SINK)
+
+dlq-demo: ## Send 3 malformed events through the contract check (shows the DLQ path)
+	@uv run --env-file .env python -m collector dlq-demo
+
+topics: ## Describe Kafka topics (message counts per partition)
+	docker compose exec -T redpanda rpk topic describe lol.match.raw lol.match.dlq -p
+
+dlq-peek: ## Show the latest DLQ messages (reason + schema version)
+	docker compose exec -T redpanda rpk topic consume lol.match.dlq -o -3 -n 3 -f '%v\n' \
+	  | jq -c '{event_id, event_type, schema_version, rejected_at, errors}'
 
 backfill: ## Backfill a date range: make backfill START=YYYY-MM-DD END=YYYY-MM-DD (Phase 5)
 	@if [ -z "$(START)" ] || [ -z "$(END)" ]; then \
