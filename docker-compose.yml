@@ -14,7 +14,11 @@
 name: rift-lakehouse
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:3.3.2-python3.12
+  # Official image + /opt/rift-venv (pipeline + dbt from uv.lock). See docker/airflow/Dockerfile.
+  image: rift-airflow:3.3.2
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
@@ -26,9 +30,22 @@ x-airflow-common: &airflow-common
     AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?set AIRFLOW_JWT_SECRET in .env (see .env.example)}
     AIRFLOW__API_AUTH__JWT_ISSUER: airflow
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # pipeline runtime (non-secret; secrets come from Airflow Connections at task time)
+    RIFT_DATA_DIR: /opt/rift/data
+    KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    DBT_TARGET_PATH: /tmp/dbt/target # dbt project is mounted read-only
+    DBT_LOG_PATH: /tmp/dbt/logs
+    DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
   volumes:
     - ./dags:/opt/airflow/dags
     - airflow-logs:/opt/airflow/logs
+    # pipeline code is mounted read-only; only data/ (state, landing, reports) is writable
+    - ./collector:/opt/rift/collector:ro
+    - ./consumer:/opt/rift/consumer:ro
+    - ./quality:/opt/rift/quality:ro
+    - ./contracts:/opt/rift/contracts:ro
+    - ./dbt:/opt/rift/dbt:ro
+    - ./data:/opt/rift/data
   user: "50000:0"
   depends_on: &airflow-common-depends-on
     postgres:

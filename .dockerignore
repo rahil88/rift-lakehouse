@@ -1,0 +1,5 @@
+# Allowlist: the image build only needs the lockfile. Everything else (.env with secrets, data/,
+# .venv) stays out of the build context entirely.
+*
+!pyproject.toml
+!uv.lock
