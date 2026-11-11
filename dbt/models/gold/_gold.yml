@@ -1,0 +1,94 @@
+version: 2
+
+models:
+  - name: fct_participant_match
+    description: >
+      Fact table, grain = one player in one match. Joins participants to their match for patch,
+      duration and date, and derives per-minute stats. `is_remake` marks games too short to
+      count (under `remake_max_seconds`, or an early surrender).
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [match_id, participant_id]
+    columns:
+      - name: match_id
+        data_tests:
+          - not_null
+          - exactly_n_rows_per_key:
+              arguments:
+                n: 10
+      - name: champion_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_champion')
+                field: champion_id
+      - name: patch
+        description: "{{ doc('patch') }}"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_patch')
+                field: patch
+      - name: role
+        description: "{{ doc('role') }}"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY]
+      - name: kda
+        description: "(kills + assists) / max(deaths, 1)"
+      - name: is_remake
+        data_tests: [not_null]
+
+  - name: dim_champion
+    description: "One row per champion, from the latest Data Dragon version."
+    columns:
+      - name: champion_id
+        description: "Numeric champion key (Data Dragon `key`), as used in match payloads."
+        data_tests: [unique, not_null]
+      - name: champion_name
+        description: "Display name, e.g. Wukong (whose Data Dragon id is MonkeyKing)."
+        data_tests: [not_null]
+
+  - name: dim_patch
+    description: "One row per patch seen in match data, with first/last game and match count."
+    columns:
+      - name: patch
+        description: "{{ doc('patch') }}"
+        data_tests: [unique, not_null]
+      - name: patch_sort_key
+        description: "Integer that sorts patches correctly (16.3 before 16.22)."
+
+  - name: mart_champion_winrate_by_patch_role
+    description: "{{ doc('winrate_mart') }}"
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [patch, champion_id, role]
+    columns:
+      - name: games
+        description: "Sample size: non-remake games for this champion in this role on this patch."
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 1
+      - name: win_rate
+        data_tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: win_rate_ci_lower
+        description: "Lower bound of the 95% Wilson score interval."
+      - name: win_rate_ci_upper
+        description: "Upper bound of the 95% Wilson score interval."
+
+snapshots:
+  - name: snap_player_rank
+    description: >
+      SCD Type 2 rank history per player and queue. A change in tier, division or LP closes the
+      open row (dbt_valid_to) and opens a new one. Built forward from the first snapshot, because
+      league-v4 has no history to backfill.
