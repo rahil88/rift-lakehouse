@@ -13,12 +13,18 @@ dependencies = [
 ]
 
 [dependency-groups]
+dbt = [
+    "dbt-core==1.12.6",
+    "dbt-databricks==1.13.0",
+]
 dev = [
     "pytest==9.2.0",
     "ruff==0.17.4",
 ]
 
 [tool.uv]
+# `uv sync` installs dev + dbt; the Airflow image installs dbt into its own venv (Phase 5).
+default-groups = ["dev", "dbt"]
 # Not built as a wheel: collector/, consumer/, quality/ are imported from the repo root.
 package = false
 
