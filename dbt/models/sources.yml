@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw events loaded by COPY INTO from the landing Volume. Payloads are JSON text."
+    database: "{{ env_var('DATABRICKS_CATALOG', 'workspace') }}"
+    schema: rift_bronze
+    config:
+      loaded_at_field: _ingested_at
+      freshness:
+        warn_after: { count: 26, period: hour }
+        error_after: { count: 50, period: hour }
+    tables:
+      - name: matches
+        description: "One row per match event that passed contract v1 (may contain duplicates)."
+      - name: timeline_events
+        description: "One row per timeline event that passed contract v1."
+      - name: player_ranks
+        description: "One row per ladder entry per snapshot."
+      - name: dlq_events
+        description: "Events rejected by the producer's contract check."
+        config:
+          freshness: null
+      - name: producer_metrics
+        description: "Per-run producer validation counts."
+        config:
+          freshness: null
+      - name: ddragon_champions
+        description: "Data Dragon champion metadata per game version."
+        config:
+          freshness: null

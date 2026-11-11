@@ -1,0 +1,148 @@
+version: 2
+
+models:
+  - name: stg_matches
+    description: >
+      One row per match: typed, deduped on match_id (latest ingested copy wins). Incremental
+      MERGE, so reruns and duplicate deliveries converge to the same rows.
+    columns:
+      - name: match_id
+        description: "Riot match ID, e.g. NA1_5123456789. Natural key."
+        data_tests: [unique, not_null]
+      - name: queue_id
+        description: "420 = ranked solo/duo. Enforced upstream by the contract too."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [420]
+      - name: patch
+        description: "{{ doc('patch') }}"
+        data_tests: [not_null]
+      - name: game_duration_s
+        description: "Game length in seconds."
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 14400
+      - name: winning_team_id
+        description: "100 (blue) or 200 (red); null if Riot reported no winner (remake)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [100, 200]
+
+  - name: stg_participants
+    description: >
+      One row per player per match, exploded from the match payload with a typed struct
+      schema. Riot IDs (names) are deliberately not modeled; puuid is the key.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [match_id, participant_id]
+    columns:
+      - name: match_id
+        data_tests:
+          - not_null
+          - exactly_n_rows_per_key:
+              arguments:
+                n: 10
+          - relationships:
+              arguments:
+                to: ref('stg_matches')
+                field: match_id
+      - name: participant_id
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 10
+      - name: puuid
+        description: "Riot's stable, encrypted player ID."
+        data_tests: [not_null]
+      - name: champion_id
+        description: "Numeric champion key; joins to dim_champion.champion_id."
+        data_tests: [not_null]
+      - name: team_id
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [100, 200]
+      - name: team_position
+        description: "{{ doc('role') }}"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY]
+
+  - name: stg_timeline_events
+    description: >
+      One row per timeline event, deduped on (match_id, frame_index, event_index). The most
+      used fields are typed columns; the full event stays in event_json.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [match_id, frame_index, event_index]
+    columns:
+      - name: match_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_matches')
+                field: match_id
+              config:
+                severity: warn # a timeline can land before its match in a partial run
+      - name: event_type
+        description: >
+          Riot event type. A new type warns instead of failing: the contract accepts any
+          UPPER_SNAKE type on purpose, and this list documents the ones we've seen.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  [
+                    BUILDING_KILL, CHAMPION_KILL, CHAMPION_SPECIAL_KILL, CHAMPION_TRANSFORM,
+                    DRAGON_SOUL_GIVEN, ELITE_MONSTER_KILL, FEAT_UPDATE, GAME_END, ITEM_DESTROYED,
+                    ITEM_PURCHASED, ITEM_SOLD, ITEM_UNDO, LEVEL_UP, OBJECTIVE_BOUNTY_FINISH,
+                    OBJECTIVE_BOUNTY_PRESTART, PAUSE_END, PAUSE_START, SKILL_LEVEL_UP,
+                    TURRET_PLATE_DESTROYED, WARD_KILL, WARD_PLACED,
+                  ]
+              config:
+                severity: warn
+      - name: event_timestamp_ms
+        description: "Milliseconds since game start."
+        data_tests: [not_null]
+
+  - name: stg_player_ranks
+    description: "One row per player per ladder snapshot."
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [puuid, queue, snapshot_at]
+    columns:
+      - name: tier
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  [CHALLENGER, GRANDMASTER, MASTER, DIAMOND, EMERALD, PLATINUM, GOLD, SILVER, BRONZE, IRON]
+      - name: league_points
+        data_tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: snapshot_at
+        description: "When the collector read the ladder (UTC)."
+        data_tests: [not_null]
+
+  - name: stg_champions
+    description: "Latest Data Dragon metadata per champion."
+    columns:
+      - name: champion_id
+        data_tests: [unique, not_null]
