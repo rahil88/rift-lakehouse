@@ -39,8 +39,12 @@ check-riot: ## One Riot API call: prints HTTP status + rate-limit headers (never
 	  "https://$${RIOT_PLATFORM}.api.riotgames.com/lol/status/v4/platform-data" \
 	  | grep -iE '^(HTTP/|x-app-rate-limit|x-method-rate-limit|x-rate-limit-type|retry-after)'
 
-collect: ## Crawl Riot API -> Kafka (Phase 1)
-	@echo "make collect: not implemented yet (Phase 1: rate-limited collector)"; exit 1
+MAX_PLAYERS ?= 50
+MAX_MATCHES ?= 200
+collect: ## Crawl Riot API: [START=YYYY-MM-DD END=YYYY-MM-DD] [MAX_PLAYERS=50] [MAX_MATCHES=200]
+	uv run --env-file .env python -m collector crawl \
+	  $(if $(START),--start $(START)) $(if $(END),--end $(END)) \
+	  --max-players $(MAX_PLAYERS) --max-matches $(MAX_MATCHES)
 
 backfill: ## Backfill a date range: make backfill START=YYYY-MM-DD END=YYYY-MM-DD (Phase 5)
 	@if [ -z "$(START)" ] || [ -z "$(END)" ]; then \
