@@ -13,6 +13,10 @@ dependencies = [
 ]
 
 [dependency-groups]
+dashboard = [
+    "databricks-sql-connector==4.4.0",
+    "streamlit==1.66.1",
+]
 dbt = [
     "dbt-core==1.12.6",
     "dbt-databricks==1.13.0",
@@ -23,8 +27,9 @@ dev = [
 ]
 
 [tool.uv]
-# `uv sync` installs dev + dbt; the Airflow image installs dbt into its own venv (Phase 5).
-default-groups = ["dev", "dbt"]
+# `uv sync` installs everything for local dev. The Airflow image installs only the runtime
+# deps + dbt (--no-default-groups --group dbt).
+default-groups = ["dev", "dbt", "dashboard"]
 # Not built as a wheel: collector/, consumer/, quality/ are imported from the repo root.
 package = false
 
