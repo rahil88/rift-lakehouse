@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze topics dlq-peek backfill
+.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze dbt-parse dbt-build dbt-docs topics dlq-peek backfill
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -62,6 +62,17 @@ bronze-setup: ## Create schemas, landing Volume and bronze tables (idempotent)
 bronze: ## Upload landing files to the Volume, then COPY INTO bronze (idempotent)
 	@uv run --env-file .env python -m consumer upload
 	@uv run --env-file .env python -m consumer load-bronze
+
+DBT = cd dbt && uv run --env-file ../.env dbt
+dbt-parse: ## Validate the dbt project offline (no warehouse needed)
+	@cd dbt && DATABRICKS_HOST=offline DATABRICKS_TOKEN=offline DATABRICKS_HTTP_PATH=/offline \
+	  uv run dbt parse --profiles-dir . --no-partial-parse
+
+dbt-build: ## dbt build: silver + gold + snapshot + all tests (needs Databricks)
+	$(DBT) build --profiles-dir .
+
+dbt-docs: ## Generate dbt docs (needs Databricks) and serve on :8082
+	$(DBT) docs generate --profiles-dir . && $(DBT) docs serve --profiles-dir . --port 8082
 
 topics: ## Describe Kafka topics (message counts per partition)
 	docker compose exec -T redpanda rpk topic describe lol.match.raw lol.match.dlq -p
