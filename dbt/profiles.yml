@@ -1,0 +1,15 @@
+# Safe to commit: every secret comes from environment variables (.env locally, Airflow
+# Connection in Phase 5). Run dbt with `make dbt-build` (it loads .env) or export the vars.
+rift:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      catalog: "{{ env_var('DATABRICKS_CATALOG', 'workspace') }}"
+      schema: rift_dev # only used by models without a custom schema
+      host: "{{ env_var('DATABRICKS_HOST') | replace('https://', '') | replace('/', '') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      threads: 2 # one 2X-Small warehouse on Free Edition
+      connect_retries: 3
+      connect_timeout: 30
