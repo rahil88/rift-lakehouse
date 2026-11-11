@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 # Runtime deps are added phase by phase, each pinned exactly. uv.lock pins the transitive tree.
 dependencies = [
+    "confluent-kafka==2.16.1",
     "httpx==0.28.1",
+    "jsonschema==4.26.0",
 ]
 
 [dependency-groups]
