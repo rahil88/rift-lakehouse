@@ -51,7 +51,26 @@ def _parser() -> argparse.ArgumentParser:
     )
     crawl.add_argument("--sink", choices=["kafka", "jsonl"], default="kafka")
     sub.add_parser("dlq-demo", help="send 3 malformed events to show the DLQ path")
+    ddragon = sub.add_parser("ddragon", help="Data Dragon champions -> landing (for dim_champion)")
+    ddragon.add_argument("--version", help="game version, e.g. 16.22.1 (default: latest)")
     return parser
+
+
+def cmd_ddragon(args: argparse.Namespace) -> int:
+    import os
+    from pathlib import Path
+
+    import httpx
+
+    from collector.ddragon import fetch_champions, latest_version, write_champions
+
+    landing = Path(os.environ.get("RIFT_DATA_DIR", "data")) / "landing"
+    with httpx.Client(timeout=30) as http:
+        version = args.version or latest_version(http)
+        rows = fetch_champions(http, version)
+    out = write_champions(landing, version, rows)
+    print(json.dumps({"version": version, "champions": len(rows), "file": str(out)}))
+    return 0
 
 
 def _kafka_sink(settings: Settings, producer_name: str = "rift-collector"):  # noqa: ANN202
@@ -152,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # don't log every request URL
     args = _parser().parse_args(argv)
+    if args.command == "ddragon":  # static CDN: no Riot key needed
+        return cmd_ddragon(args)
     try:
         settings = Settings.from_env()
     except ConfigError as exc:
