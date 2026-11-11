@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo topics dlq-peek backfill
+.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze topics dlq-peek backfill
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -49,6 +49,19 @@ collect: ## Crawl Riot API -> contracts -> Kafka: [START= END=] [MAX_PLAYERS=50]
 
 dlq-demo: ## Send 3 malformed events through the contract check (shows the DLQ path)
 	@uv run --env-file .env python -m collector dlq-demo
+
+ddragon: ## Data Dragon champion metadata -> landing (no API key needed)
+	@uv run --env-file .env python -m collector ddragon
+
+land: ## Kafka -> local JSONL landing files (no Databricks needed)
+	@uv run --env-file .env python -m consumer consume
+
+bronze-setup: ## Create schemas, landing Volume and bronze tables (idempotent)
+	@uv run --env-file .env python -m consumer setup
+
+bronze: ## Upload landing files to the Volume, then COPY INTO bronze (idempotent)
+	@uv run --env-file .env python -m consumer upload
+	@uv run --env-file .env python -m consumer load-bronze
 
 topics: ## Describe Kafka topics (message counts per partition)
 	docker compose exec -T redpanda rpk topic describe lol.match.raw lol.match.dlq -p
