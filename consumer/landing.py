@@ -103,13 +103,20 @@ class LandingConsumer:
         *,
         max_batch: int = 20_000,
         idle_timeout_s: float = 10.0,
+        assign_timeout_s: float = 60.0,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._consumer = consumer
         self._landing_dir = landing_dir
         self._max_batch = max_batch
         self._idle_timeout_s = idle_timeout_s
+        self._assign_timeout_s = assign_timeout_s
         self._clock = clock
+
+    def _assigned(self) -> bool:
+        """True once the group rebalance has given us partitions."""
+        assignment = getattr(self._consumer, "assignment", None)
+        return True if assignment is None else bool(assignment())
 
     def run(self) -> LandingReport:
         """Drain the topics: run micro-batch cycles until no message arrives for idle_timeout."""
@@ -125,11 +132,21 @@ class LandingConsumer:
     def _cycle(self, report: LandingReport) -> int:
         buffers: dict[tuple[str, str, int], list[tuple[int, int, str]]] = defaultdict(list)
         count = 0
-        idle_since = self._clock()
+        started = idle_since = self._clock()
         while count < self._max_batch:
             batch = self._consumer.consume(num_messages=1000, timeout=1.0)
             if not batch:
-                if self._clock() - idle_since >= self._idle_timeout_s:
+                now = self._clock()
+                if not self._assigned():
+                    # A rebalance can take seconds. "Idle" only counts once we own partitions,
+                    # otherwise a slow rebalance looks like "no data" and the run exits early.
+                    if now - started >= self._assign_timeout_s:
+                        raise RuntimeError(
+                            f"no partitions assigned after {self._assign_timeout_s:.0f}s"
+                        )
+                    idle_since = now
+                    continue
+                if now - idle_since >= self._idle_timeout_s:
                     break
                 continue
             idle_since = self._clock()

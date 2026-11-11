@@ -147,3 +147,32 @@ def test_kafka_error_stops_without_commit(tmp_path):
     with pytest.raises(RuntimeError, match="broker gone"):
         LandingConsumer(consumer, tmp_path, clock=FakeClock()).run()
     assert consumer.commits == 0
+
+
+def test_idle_timer_waits_for_partition_assignment(tmp_path):
+    """A slow rebalance must not look like 'no data': messages after it are still landed."""
+
+    class SlowRebalance(FakeConsumer):
+        def __init__(self, messages):
+            super().__init__(messages)
+            self.calls = 0
+
+        def assignment(self):
+            return ["p0"] if self.calls > 20 else []  # unassigned for 20 polls (> idle timeout)
+
+        def consume(self, num_messages, timeout):
+            self.calls += 1
+            return [] if self.calls <= 20 else super().consume(num_messages, timeout)
+
+    consumer = SlowRebalance(messages())
+    report = LandingConsumer(consumer, tmp_path, idle_timeout_s=3, clock=FakeClock()).run()
+    assert report.messages == 5
+
+
+def test_never_assigned_fails_loudly(tmp_path):
+    class NeverAssigned(FakeConsumer):
+        def assignment(self):
+            return []
+
+    with pytest.raises(RuntimeError, match="no partitions assigned"):
+        LandingConsumer(NeverAssigned([]), tmp_path, assign_timeout_s=5, clock=FakeClock()).run()
