@@ -16,6 +16,7 @@ import argparse
 import json
 import logging
 import sys
+import uuid
 from datetime import UTC, date, datetime, time, timedelta
 
 from collector.config import ConfigError, Settings
@@ -25,6 +26,13 @@ from collector.events import Event
 from collector.riot_client import TIERS, RiotAuthError, RiotClient
 from collector.sinks import JsonlSink, Sink
 from collector.state import CrawlState
+
+
+def new_run_id(now: datetime | None = None) -> str:
+    """Timestamp for humans plus a random suffix for uniqueness. Seconds alone collided: two
+    Airflow runs started in the same second and one overwrote the other's metrics file."""
+    stamp = (now or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
+    return f"crawl-{stamp}-{uuid.uuid4().hex[:8]}"
 
 
 def _utc_day(value: str) -> datetime:
@@ -108,7 +116,7 @@ def _write_report(settings: Settings, name: str, report: dict) -> None:
 def cmd_crawl(args: argparse.Namespace, settings: Settings) -> int:
     from collector.producer import KafkaSink, write_metrics
 
-    run_id = "crawl-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    run_id = new_run_id()
     started_at = datetime.now(UTC).isoformat(timespec="seconds")
     snapshot_ranks = not args.no_ranks
     if args.snapshot_at and args.max_rank_lag_hours is not None:

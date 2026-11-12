@@ -113,3 +113,13 @@ def test_rank_snapshot_labeled_by_logical_date_is_idempotent(clock):
         ids.append(sorted(e.event_id for e in sink.events if e.event_type == "player_rank"))
     assert ids[0] == ids[1]
     assert ids[0][0].endswith(":2026-11-11T00:00:00+00:00")
+
+
+def test_run_ids_are_unique_within_the_same_second():
+    """Regression: two Airflow runs started in the same second and shared a run_id."""
+    from collector.__main__ import new_run_id
+
+    same_second = datetime(2026, 11, 12, 0, 9, 23, tzinfo=UTC)
+    ids = {new_run_id(same_second) for _ in range(50)}
+    assert len(ids) == 50
+    assert all(i.startswith("crawl-20261112T000923Z-") for i in ids)
