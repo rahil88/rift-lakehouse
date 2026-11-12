@@ -98,3 +98,20 @@ def test_ddl_comments_are_escaped():
     assert sql_string("producer's \\ x") == "'producer\\'s \\\\ x'"
     dlq = next(s for s in setup_statements("workspace") if ".dlq_events " in s)
     assert "producer\\'s contract check" in dlq
+
+
+def test_upload_skips_file_taken_by_concurrent_uploader(tmp_path):
+    """Regression: a backfill run and a scheduled run uploaded at once; one crashed with
+    FileNotFoundError when the other archived the file first."""
+    landing, landed = tmp_path / "landing", tmp_path / "landed"
+    for name in ("a.jsonl", "b.jsonl"):
+        (landing / "match").mkdir(parents=True, exist_ok=True)
+        (landing / "match" / name).write_text("{}\n")
+
+    class RacingFiles:
+        def upload(self, path, fh, overwrite):
+            if path.endswith("a.jsonl"):  # the other uploader archives b while we upload a
+                (landing / "match" / "b.jsonl").unlink()
+
+    report = upload_landing(RacingFiles(), landing, landed, VOLUME)
+    assert (report.files, report.skipped) == (1, 1)
