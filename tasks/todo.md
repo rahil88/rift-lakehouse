@@ -39,7 +39,7 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
 - [x] Gold: fct_participant_match, dim_champion, dim_patch, snap_player_rank (SCD2), Wilson win-rate mart
 - [x] 50 dbt tests incl. exactly-10-participants, one-winning-team, CI-contains-win-rate; docs
 - [x] `dbt parse` clean (0 warnings); Wilson macro evaluated vs reference values
-- [ ] **Real `dbt build`** (blocked on Databricks)
+- [x] Real `dbt build`: PASS=60 WARN=0 ERROR=0 in 57.9 s; rerun PASS=60 in 61.8 s with identical row counts and no new snapshot versions
 
 ## Phase 5 — Airflow DAG + backfill
 - [x] Custom image: isolated /opt/rift-venv from uv.lock (pipeline + dbt; no streamlit/pytest)
@@ -106,3 +106,11 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
   the DDL. Fixed with a shared sql_string() helper and a regression test.
 - COPY INTO for all six tables took ~25 s; bronze counts equal the landed counts exactly.
 - Idempotency proven: second `make bronze` uploaded 0 files and inserted 0 rows.
+
+### Phase 4 on Databricks (2026-11-11)
+- dbt build #1: 4 incremental + 5 table models, 1 snapshot, 50 tests → PASS=60, 57.9 s.
+- Rows: stg_matches 620, stg_participants 6,200 (=10×620), stg_timeline_events 688,812,
+  stg_player_ranks 2,000, fct_participant_match 6,200, dim_champion 173, dim_patch 2,
+  win-rate mart 611, snap_player_rank 1,000.
+- dbt build #2: PASS=60, 61.8 s, row counts identical, snapshot still 1,000 versions (1 distinct
+  valid_from): MERGE + table rebuild + check-strategy snapshot are idempotent.
