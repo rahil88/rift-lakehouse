@@ -66,7 +66,7 @@ with tab_winrates:
         if shown.empty:
             st.warning("No champion meets the minimum; lower it to see small samples.")
         else:
-            st.altair_chart(winrate_chart(shown), use_container_width=True)
+            st.altair_chart(winrate_chart(shown), width="stretch")
             st.dataframe(
                 shown.sort_values("win_rate_ci_lower", ascending=False)[
                     [
@@ -95,14 +95,14 @@ with tab_health:
         for col, (_, row) in zip(cols, latest.iterrows(), strict=True):
             value = "-" if pd.isna(row["metric_value"]) else f"{row['metric_value']:.4g}"
             col.metric(row["check_name"], value, row["status"], delta_color="off")
-        st.altair_chart(quality_status_chart(checks), use_container_width=True)
+        st.altair_chart(quality_status_chart(checks), width="stretch")
 
     volume = query(
         f"SELECT game_date, count(DISTINCT match_id) AS matches FROM {GOLD}.fct_participant_match "
         "GROUP BY game_date ORDER BY game_date"
     )
     st.subheader("Matches per game day")
-    st.altair_chart(daily_volume_chart(volume), use_container_width=True)
+    st.altair_chart(daily_volume_chart(volume), width="stretch")
 
     st.subheader("Producer runs (contract validation)")
     st.dataframe(
