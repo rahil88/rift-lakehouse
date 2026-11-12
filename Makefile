@@ -79,7 +79,9 @@ quality: ## Run quality checks for a data day: make quality DATE=YYYY-MM-DD (nee
 	@uv run --env-file .env python -m quality run --date $(DATE)
 
 dashboard: ## Streamlit dashboard over gold on http://localhost:8501 (needs Databricks)
-	uv run --env-file .env streamlit run dashboard/app.py --server.address 127.0.0.1
+	@# PYTHONPATH=. : streamlit puts dashboard/ (not the repo root) on sys.path, so `import dashboard` fails
+	PYTHONPATH=. uv run --env-file .env streamlit run dashboard/app.py --server.address 127.0.0.1 \
+	  --server.headless true --browser.gatherUsageStats false
 
 topics: ## Describe Kafka topics (message counts per partition)
 	docker compose exec -T redpanda rpk topic describe lol.match.raw lol.match.dlq -p
