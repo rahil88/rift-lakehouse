@@ -56,6 +56,30 @@ flowchart LR
 | silver → gold | Tables rebuilt; SCD2 snapshot (check strategy) | Deterministic rebuild; unchanged ranks create no new versions |
 | quality | Checks MERGE into `quality_results` on (check, date) | Rerunning a date overwrites that date |
 
+## See it running
+
+Screenshots of the live local services and the dashboard over the Databricks gold layer,
+captured 2026-11-11 from the runs reported in [Results](#results-measured).
+
+<table>
+<tr>
+<td width="50%"><b>Airflow: both runs green, DAG paused afterwards</b><br><img src="docs/img/airflow-dag.png" alt="Airflow DAG grid with two successful runs"></td>
+<td width="50%"><b>Airflow: task graph of one daily run (3 min 18 s)</b><br><img src="docs/img/airflow-graph.png" alt="Airflow graph view, all six tasks succeeded"></td>
+</tr>
+<tr>
+<td><b>Airflow: dbt_build log, PASS=60 WARN=0 ERROR=0</b><br><img src="docs/img/airflow-dbt-log.png" alt="dbt build log inside Airflow"></td>
+<td><b>Redpanda: raw (36.7 MiB, 3 partitions) and DLQ topics</b><br><img src="docs/img/redpanda-topics.png" alt="Redpanda Console topics"></td>
+</tr>
+<tr>
+<td><b>Redpanda: DLQ messages rejected by the contract</b> (the 3 injected <code>dlq-demo</code> events)<br><img src="docs/img/redpanda-dlq.png" alt="DLQ messages in Redpanda Console"></td>
+<td><b>Redpanda: consumer group <code>rift-landing</code>, total lag 0</b><br><img src="docs/img/redpanda-consumer-group.png" alt="Consumer group with zero lag"></td>
+</tr>
+<tr>
+<td><b>Dashboard: champion win rate with 95% Wilson intervals</b> (patch 16.22, TOP, ≥ 20 games)<br><img src="docs/img/dashboard-winrates.png" alt="Win rate chart with confidence intervals"></td>
+<td><b>Dashboard: quality checks per data day and matches per day</b> (the 11-11 volume <i>warn</i> is the capped demo run)<br><img src="docs/img/dashboard-health.png" alt="Pipeline health tab"></td>
+</tr>
+</table>
+
 ## Stack
 
 | Layer | Tool | Version |
