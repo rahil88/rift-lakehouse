@@ -94,7 +94,7 @@ with tab_health:
         cols = st.columns(len(latest))
         for col, (_, row) in zip(cols, latest.iterrows(), strict=True):
             value = "-" if pd.isna(row["metric_value"]) else f"{row['metric_value']:.4g}"
-            col.metric(row["check_name"], value, row["status"], delta_color="off")
+            col.metric(f"{row['check_name']} · {row['status']}", value)
         st.altair_chart(quality_status_chart(checks), width="stretch")
 
     volume = query(

@@ -21,7 +21,7 @@ def winrate_chart(df: pd.DataFrame, *, top_n: int = 40) -> alt.Chart:
     """
     data = df.sort_values("win_rate_ci_lower", ascending=False).head(top_n)
     order = data["champion_name"].tolist()
-    y = alt.Y("champion_name:N", sort=order, title=None)
+    y = alt.Y("champion_name:N", sort=order, title=None, axis=alt.Axis(labelOverlap=False))
     x_scale = alt.Scale(domain=[0, 1])
     tooltip = [
         alt.Tooltip("champion_name:N", title="Champion"),
@@ -52,7 +52,7 @@ def winrate_chart(df: pd.DataFrame, *, top_n: int = 40) -> alt.Chart:
         )
     )
     even = alt.Chart(pd.DataFrame({"x": [0.5]})).mark_rule(strokeDash=[4, 4]).encode(x="x:Q")
-    return (bars + points + even).properties(height=max(200, 18 * len(data)))
+    return (bars + points + even).properties(height=max(200, 26 * len(data)))
 
 
 def daily_volume_chart(df: pd.DataFrame) -> alt.Chart:
@@ -61,7 +61,8 @@ def daily_volume_chart(df: pd.DataFrame) -> alt.Chart:
         alt.Chart(df)
         .mark_bar()
         .encode(
-            x=alt.X("game_date:T", title="Game day (UTC)"),
+            # ordinal days: one readable bar per day (a temporal axis draws hairlines)
+            x=alt.X("yearmonthdate(game_date):O", title="Game day (UTC)"),
             y=alt.Y("matches:Q", title="Matches"),
             tooltip=["game_date:T", "matches:Q"],
         )
@@ -75,7 +76,8 @@ def quality_status_chart(df: pd.DataFrame) -> alt.Chart:
         alt.Chart(df)
         .mark_rect(stroke="white")
         .encode(
-            x=alt.X("target_date:T", title="Data day"),
+            # ordinal days: one cell per (check, day); a temporal axis made the cells overlap
+            x=alt.X("yearmonthdate(target_date):O", title="Data day"),
             y=alt.Y("check_name:N", title=None),
             color=alt.Color(
                 "status:N",
