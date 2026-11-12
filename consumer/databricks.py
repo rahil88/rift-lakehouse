@@ -16,6 +16,16 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 
+def sql_string(value: object) -> str:
+    """Databricks SQL string literal, with backslash and quote escaped (backslash is an escape
+    character in Databricks SQL). Found by a real run: an apostrophe in a table comment ended
+    the literal early."""
+    if value is None:
+        return "NULL"
+    text = str(value).replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{text}'"
+
+
 class DatabricksConfigError(RuntimeError):
     pass
 

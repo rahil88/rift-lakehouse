@@ -15,6 +15,8 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from consumer.databricks import sql_string
+
 log = logging.getLogger(__name__)
 
 LANDING_SCHEMA = "rift_landing"
@@ -196,7 +198,7 @@ def setup_statements(catalog: str) -> list[str]:
     for table in BRONZE_TABLES:
         statements.append(
             f"CREATE TABLE IF NOT EXISTS {catalog}.{BRONZE_SCHEMA}.{table.name} "
-            f"({table.columns}) USING DELTA COMMENT '{table.comment}'"
+            f"({table.columns}) USING DELTA COMMENT {sql_string(table.comment)}"
         )
     return statements
 

@@ -11,6 +11,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+from consumer.databricks import sql_string
 from quality.checks import CheckResult, dlq_rate, duration_drift, freshness, volume_zscore
 
 QUALITY_SCHEMA = "rift_quality"
@@ -36,14 +37,6 @@ def setup_statements(catalog: str) -> list[str]:
     ]
 
 
-def _sql_str(value: object) -> str:
-    """SQL string literal for Databricks (backslash is an escape character there)."""
-    if value is None:
-        return "NULL"
-    text = str(value).replace("\\", "\\\\").replace("'", "\\'")
-    return f"'{text}'"
-
-
 def _sql_num(value: float | None) -> str:
     return "NULL" if value is None else repr(float(value))
 
@@ -55,14 +48,14 @@ def merge_statement(
         "("
         + ", ".join(
             [
-                _sql_str(r.check_name),
+                sql_string(r.check_name),
                 f"DATE'{target.isoformat()}'",
-                _sql_str(r.status),
+                sql_string(r.status),
                 _sql_num(r.metric_value),
                 _sql_num(r.threshold),
-                _sql_str(json.dumps(r.details, default=str, sort_keys=True)),
+                sql_string(json.dumps(r.details, default=str, sort_keys=True)),
                 f"TIMESTAMP'{checked_at.strftime('%Y-%m-%d %H:%M:%S')}'",
-                _sql_str(run_id),
+                sql_string(run_id),
             ]
         )
         + ")"

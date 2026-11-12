@@ -89,3 +89,12 @@ def test_settings_parse_warehouse_and_hide_token():
     assert s.warehouse_id == "abc123"
     assert s.volume_root == VOLUME
     assert "dapi-secret" not in repr(s)
+
+
+def test_ddl_comments_are_escaped():
+    """Regression: "producer's" in the DLQ table comment broke the CREATE TABLE statement."""
+    from consumer.databricks import sql_string
+
+    assert sql_string("producer's \\ x") == "'producer\\'s \\\\ x'"
+    dlq = next(s for s in setup_statements("workspace") if ".dlq_events " in s)
+    assert "producer\\'s contract check" in dlq
