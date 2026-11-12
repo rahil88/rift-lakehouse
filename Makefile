@@ -95,6 +95,7 @@ airflow-config: ## Load .env secrets into Airflow Connections (encrypted), Varia
 	@uv run --env-file .env python docker/airflow/connections.py variables \
 	  | $(AF) bash -c 'f=$$(mktemp --suffix=.json); cat > $$f; airflow variables import -a overwrite $$f; rc=$$?; rm -f $$f; exit $$rc'
 	@$(AF) airflow pools set databricks 1 "Free Edition: one 2X-Small SQL warehouse" >/dev/null && echo "pool databricks=1"
+	@$(AF) airflow pools set rift_local 1 "Tasks sharing local state: crawl SQLite, landing dir, Riot rate limit" >/dev/null && echo "pool rift_local=1"
 
 dag-check: ## DAG import errors + task graph, inside the Airflow container
 	@$(AF) airflow dags list-import-errors

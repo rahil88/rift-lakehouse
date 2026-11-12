@@ -40,6 +40,11 @@ PY = "/opt/rift-venv/bin/python"
 DBT = "/opt/rift-venv/bin/dbt"
 RIFT = "/opt/rift"
 DATABRICKS_POOL = "databricks"  # size 1: Free Edition has one 2X-Small SQL warehouse
+# size 1: tasks sharing local state (crawl SQLite, landing dir, the Riot rate limit). Needed
+# because Airflow 3 counts backfill runs and scheduled runs separately against
+# max_active_runs. A real backfill + scheduled run overlapped and two uploaders raced on the
+# same landing file.
+LOCAL_POOL = "rift_local"
 
 # Templated at runtime from Connections; Airflow masks the passwords in task logs.
 RIOT_ENV = {
@@ -85,14 +90,18 @@ with DAG(
         ),
         env=RIOT_ENV,
         execution_timeout=timedelta(hours=2),
+        pool=LOCAL_POOL,
     )
 
-    ddragon = BashOperator(task_id="ddragon", bash_command=f"{PY} -m collector ddragon")
+    ddragon = BashOperator(
+        task_id="ddragon", bash_command=f"{PY} -m collector ddragon", pool=LOCAL_POOL
+    )
 
     consume_and_upload = BashOperator(
         task_id="consume_and_upload",
         bash_command=f"{PY} -m consumer consume && {PY} -m consumer upload",
         env=DATABRICKS_ENV,
+        pool=LOCAL_POOL,
     )
 
     copy_into_bronze = BashOperator(
