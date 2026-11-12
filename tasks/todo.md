@@ -46,18 +46,18 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
 - [x] DAG parses (0 import errors), 6 tasks; CronDataIntervalTimetable (Airflow 3 @daily has no interval)
 - [x] Connections (riot_api stored Fernet-encrypted, verified in DB), Variables, pool databricks=1
 - [x] Rank snapshot labeled by logical date (rerun-idempotent), skipped on backfills
-- [ ] Real task run inside Airflow (collect) — next, with Databricks run
-- [ ] **Full DAG run + backfill** (blocked on Databricks)
+- [x] Real runs inside Airflow: all 6 tasks green for 2026-11-10 (backfill) and 2026-11-11 (scheduled)
+- [x] Full DAG run + 2-day backfill; DAG re-paused afterwards (free-quota rule)
 
 ## Phase 6 — Observability
 - [x] Freshness SLO (Delta history), volume z-score (14d), duration PSI drift, DLQ rate → quality_results MERGE
 - [x] insufficient_data instead of fake pass; exit 1 on fail = Airflow alert; 12 unit tests
-- [ ] **Real run** (blocked on Databricks)
+- [x] Real run via the DAG: 11-10 4/4 pass; 11-11 volume warn (true positive: demo cap) + drift insufficient_data
 
 ## Phase 7 — Dashboard + README with measured numbers
 - [x] Streamlit dashboard (Wilson CI chart sorted by lower bound, health tab); chart tests
 - [x] docs/references.md
-- [ ] README with Mermaid + measured results (Databricks-side numbers pending)
+- [x] README with Mermaid + measured results + 'what broke' table; dashboard verified headlessly on real gold
 
 ## Review
 
@@ -114,3 +114,13 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
   win-rate mart 611, snap_player_rank 1,000.
 - dbt build #2: PASS=60, 61.8 s, row counts identical, snapshot still 1,000 versions (1 distinct
   valid_from): MERGE + table rebuild + check-strategy snapshot are idempotent.
+
+### Phases 5–7 on Databricks + Airflow (2026-11-12 UTC)
+- Backfill 11-10..11-11 → 2 runs, both green; clean daily run 3 min 19 s. DAG re-paused.
+- The real backfill found 2 bugs: overlapping runs raced on landing files (fixed with a size-1
+  rift_local pool + an uploader safety net) and a run_id collision within one second (fixed with
+  a random suffix). Silver dedup absorbed the 21 duplicate matches the overlap produced.
+- quality_results: 11-10 all pass; 11-11 volume warn z=-2.35 (true positive) and drift
+  insufficient_data.
+- Dashboard: streamlit AppTest against real gold, no exceptions; deprecated arg fixed.
+- SCD2: 1,261 versions / 1,000 players (261 real LP changes between ladder reads).
