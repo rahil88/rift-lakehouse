@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze dbt-parse dbt-build dbt-docs quality dashboard topics dlq-peek airflow-config dag-check backfill
+.PHONY: help setup up down ps logs test lint fmt check-riot collect dlq-demo ddragon land bronze-setup bronze dbt-parse dbt-build dbt-docs quality dashboard topics dlq-peek airflow-config dag-check backfill pause
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-12s %s\n", $$1, $$2}'
@@ -104,6 +104,13 @@ REPROCESS ?= none
 backfill: ## Backfill: make backfill START=YYYY-MM-DD END=YYYY-MM-DD [REPROCESS=none|failed|completed]
 	@if [ -z "$(START)" ] || [ -z "$(END)" ]; then \
 	  echo "usage: make backfill START=YYYY-MM-DD END=YYYY-MM-DD"; exit 2; fi
+	@# Airflow 3 runs no tasks for a paused DAG (backfills included): unpause for the backfill,
+	@# wait for every run, then pause again, so nothing keeps running daily on the free quota.
 	$(AF) airflow dags unpause rift_lakehouse
 	$(AF) airflow backfill create --dag-id rift_lakehouse --from-date $(START) --to-date $(END) \
 	  --reprocess-behavior $(REPROCESS) --max-active-runs 1
+	@python3 docker/airflow/wait_for_runs.py rift_lakehouse; rc=$$?; \
+	  $(AF) airflow dags pause rift_lakehouse; exit $$rc
+
+pause: ## Pause the DAG (its default state; keeps the free Databricks quota untouched)
+	$(AF) airflow dags pause rift_lakehouse
