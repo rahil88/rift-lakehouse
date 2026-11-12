@@ -32,7 +32,7 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
 - [x] Upload → UC Volume (Files API) + local archive; COPY INTO bronze w/ _ingested_at, _source_file, _schema_version
 - [x] Data Dragon champions → landing (real: 173 champions, 16.22.1)
 - [x] SDK 0.117.0 signatures verified against installed package
-- [ ] **Real run against Databricks** (blocked: DATABRICKS_* not in .env yet)
+- [x] Real run on Databricks: 143 files / 638 MB uploaded; COPY INTO matches 620, timeline 688,812, ranks 2,000, dlq 3, metrics 6, champions 173 (= landed counts). Rerun: 0 files, 0 rows inserted.
 
 ## Phase 4 — dbt silver/gold
 - [x] Silver: stg_matches / participants / timeline_events / player_ranks / champions (MERGE on natural keys)
@@ -99,3 +99,10 @@ Rule: finish a phase → summarize, ≤5 design bullets, verification steps → 
   (22,594 + 668,838 valid + 3 DLQ demo). The rerun landed 0 (offsets committed). 0 duplicate event_ids.
 - Waiting on Databricks: upload, COPY INTO, dbt build, quality, full DAG + backfill, dashboard,
   README results.
+
+### Phase 3 on Databricks (2026-11-11)
+- PATs work on Free Edition. Warehouse: Serverless Starter Warehouse, 2X-Small, ~7 s cold start.
+- First real run found a bug the unit tests missed: an apostrophe in the dlq_events comment broke
+  the DDL. Fixed with a shared sql_string() helper and a regression test.
+- COPY INTO for all six tables took ~25 s; bronze counts equal the landed counts exactly.
+- Idempotency proven: second `make bronze` uploaded 0 files and inserted 0 rows.
